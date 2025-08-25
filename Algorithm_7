@@ -1,0 +1,137 @@
+import random
+import numpy as np
+
+# Calculate the total distance of a route using the distance matrix
+def total_distance(route, distance_matrix):
+    dist = 0
+    for i in range(len(route) - 1):
+        dist += distance_matrix[route[i]][route[i + 1]]
+    dist += distance_matrix[route[-1]][route[0]]  # Return to the starting city
+    return dist
+
+# Gene Expression: Decode chromosome (a permutation of cities) into a route
+def decode_chromosome(chromosome):
+    return list(chromosome)  # In GEA, chromosome is already a valid permutation of cities
+
+# Initialize population of random chromosomes (routes)
+def initialize_population(pop_size, num_cities):
+    population = []
+    for _ in range(pop_size):
+        chromosome = random.sample(range(num_cities), num_cities)  # Random permutation of cities
+        population.append(chromosome)
+    return population
+
+# Evaluate fitness: lower distance is better (minimization problem)
+def evaluate_fitness(population, distance_matrix):
+    fitness = []
+    for chromosome in population:
+        dist = total_distance(chromosome, distance_matrix)
+        fitness.append(dist)
+    return fitness
+
+# Selection: Tournament selection
+def selection(population, fitness):
+    selected = []
+    for _ in range(len(population)):
+        tournament = random.sample(list(zip(population, fitness)), 3)
+        tournament.sort(key=lambda x: x[1])  # Sort by fitness (distance)
+        selected.append(tournament[0][0])  # Select the best
+    return selected
+
+# Crossover: Partially Mapped Crossover (PMX)
+def crossover(parent1, parent2):
+    size = len(parent1)
+    crossover_point1 = random.randint(0, size - 1)
+    crossover_point2 = random.randint(crossover_point1 + 1, size)
+    
+    offspring1 = [-1] * size
+    offspring2 = [-1] * size
+
+    # Copy crossover segment
+    offspring1[crossover_point1:crossover_point2] = parent2[crossover_point1:crossover_point2]
+    offspring2[crossover_point1:crossover_point2] = parent1[crossover_point1:crossover_point2]
+
+    # Fill in the missing cities
+    for i in range(size):
+        if offspring1[i] == -1:
+            for j in range(size):
+                if parent1[j] not in offspring1:
+                    offspring1[i] = parent1[j]
+                    break
+
+        if offspring2[i] == -1:
+            for j in range(size):
+                if parent2[j] not in offspring2:
+                    offspring2[i] = parent2[j]
+                    break
+
+    return offspring1, offspring2
+
+# Mutation: Swap two cities (with fixed mutation rate of 5%)
+def mutate(route):
+    mutation_rate = 0.05  # Fixed mutation rate (5%)
+    if random.random() < mutation_rate:
+        i, j = random.sample(range(len(route)), 2)
+        route[i], route[j] = route[j], route[i]
+    return route
+
+# Main GEA algorithm
+def gene_expression_algorithm(distance_matrix, pop_size, generations):
+    num_cities = len(distance_matrix)
+    population = initialize_population(pop_size, num_cities)
+    
+    best_route = None
+    best_distance = float('inf')
+
+    for gen in range(generations):
+        # Evaluate fitness
+        fitness = evaluate_fitness(population, distance_matrix)
+        
+        # Track the best solution
+        gen_best_distance = min(fitness)
+        if gen_best_distance < best_distance:
+            best_distance = gen_best_distance
+            best_route = population[fitness.index(gen_best_distance)]
+
+        # Selection
+        selected = selection(population, fitness)
+        
+        # Crossover and create the next generation
+        next_generation = []
+        for i in range(0, pop_size, 2):
+            parent1 = selected[i]
+            parent2 = selected[(i + 1) % pop_size]
+            offspring1, offspring2 = crossover(parent1, parent2)
+            next_generation.append(offspring1)
+            next_generation.append(offspring2)
+
+        # Mutation
+        for i in range(len(next_generation)):
+            next_generation[i] = mutate(next_generation[i])
+
+        # Update population
+        population = next_generation
+
+    # Return the best solution found
+    return best_route, best_distance
+
+# Example usage
+if __name__ == "__main__":
+    # User input for number of cities, distance matrix, population size, and number of generations
+    num_cities = int(input("Enter the number of cities: "))
+    
+    print("Enter the distance matrix (row by row, space-separated values):")
+    distance_matrix = []
+    for i in range(num_cities):
+        row = list(map(int, input(f"City {i+1} distances: ").split()))
+        distance_matrix.append(row)
+    
+    pop_size = int(input("Enter the population size: "))
+    generations = int(input("Enter the number of generations: "))
+
+    # Solve TSP using Genetic Algorithm
+    best_route, best_distance = gene_expression_algorithm(distance_matrix, pop_size, generations)
+
+    # Output the best route and the corresponding distance
+    print(f"\nBest route found: {best_route}")
+    print(f"Best distance: {best_distance}")
