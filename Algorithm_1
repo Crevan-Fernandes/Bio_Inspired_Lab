@@ -1,0 +1,122 @@
+import random
+import numpy as np
+
+# Calculate the total distance of a route using the distance matrix
+def total_distance(route, distance_matrix):
+    dist = 0
+    for i in range(len(route) - 1):
+        dist += distance_matrix[route[i]][route[i + 1]]
+    dist += distance_matrix[route[-1]][route[0]]  # Return to the starting city
+    return dist
+
+# Create an initial population of random routes
+def create_population(pop_size, num_cities):
+    population = []
+    for _ in range(pop_size):
+        route = list(np.random.permutation(num_cities))  # Random permutation of cities
+        population.append(route)
+    return population
+
+# Tournament Selection
+def selection(population, fitness):
+    selected = []
+    for _ in range(len(population)):
+        tournament = random.sample(list(zip(population, fitness)), 3)
+        tournament.sort(key=lambda x: x[1])  # Sort by fitness (distance)
+        selected.append(tournament[0][0])  # Select the best
+    return selected
+
+# Partially Mapped Crossover (PMX)
+def crossover(parent1, parent2):
+    size = len(parent1)
+    crossover_point1 = random.randint(0, size - 1)
+    crossover_point2 = random.randint(crossover_point1 + 1, size)
+
+    # Create offspring from parents
+    offspring1 = [-1] * size
+    offspring2 = [-1] * size
+    offspring1[crossover_point1:crossover_point2] = parent2[crossover_point1:crossover_point2]
+    offspring2[crossover_point1:crossover_point2] = parent1[crossover_point1:crossover_point2]
+
+    # Fill in the missing genes
+    for i in range(size):
+        if offspring1[i] == -1:
+            for j in range(size):
+                if parent1[j] not in offspring1:
+                    offspring1[i] = parent1[j]
+                    break
+
+        if offspring2[i] == -1:
+            for j in range(size):
+                if parent2[j] not in offspring2:
+                    offspring2[i] = parent2[j]
+                    break
+
+    return offspring1, offspring2
+
+# Mutation: Swap two cities
+def mutate(route):
+    i, j = random.sample(range(len(route)), 2)
+    route[i], route[j] = route[j], route[i]
+    return route
+
+# Main genetic algorithm to solve the TSP
+def genetic_algorithm(distance_matrix, pop_size=100, generations=1000):
+    num_cities = len(distance_matrix)
+    population = create_population(pop_size, num_cities)
+    best_route = None
+    best_distance = float('inf')
+
+    # Fixed mutation rate (e.g., 5%)
+    mutation_rate = 0.05
+
+    for generation in range(generations):
+        # Calculate the fitness of each route (total distance)
+        fitness = [total_distance(route, distance_matrix) for route in population]
+
+        # Keep track of the best route found
+        generation_best_distance = min(fitness)
+        if generation_best_distance < best_distance:
+            best_distance = generation_best_distance
+            best_route = population[fitness.index(best_distance)]
+
+        # Selection
+        selected_population = selection(population, fitness)
+
+        # Crossover and create the next generation
+        next_generation = []
+        for i in range(0, pop_size, 2):
+            parent1 = selected_population[i]
+            parent2 = selected_population[(i + 1) % pop_size]
+            offspring1, offspring2 = crossover(parent1, parent2)
+            next_generation.extend([offspring1, offspring2])
+
+        # Mutation
+        for i in range(len(next_generation)):
+            if random.random() < mutation_rate:  # Apply mutation with fixed rate
+                next_generation[i] = mutate(next_generation[i])
+
+        population = next_generation
+
+    return best_route, best_distance
+
+# Example usage
+if __name__ == "__main__":
+    # User input for the number of cities, distance matrix, population size, and number of generations
+    num_cities = int(input("Enter the number of cities: "))
+    
+    print("Enter the distance matrix (row by row, space-separated values):")
+    distance_matrix = []
+    for i in range(num_cities):
+        row = list(map(int, input(f"City {i+1} distances: ").split()))
+        distance_matrix.append(row)
+    
+    pop_size = int(input("Enter the population size: "))
+    generations = int(input("Enter the number of generations: "))
+
+    # Solve TSP using Genetic Algorithm
+    best_route, best_distance = genetic_algorithm(distance_matrix, pop_size, generations)
+
+    # Output the best route and the corresponding distance
+    print(f"\nBest route found: {best_route}")
+    print(f"Best distance: {best_distance}")
